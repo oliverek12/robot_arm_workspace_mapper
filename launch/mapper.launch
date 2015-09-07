@@ -1,0 +1,9 @@
+<launch>
+	<param name="robot_description" command="$(find xacro)/xacro.py '$(find abb_irb1200_support)/urdf/irb1200.xacro'" />
+
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+	<node name="workspace_mapper" pkg="robot_arm_workspace_mapper" type="workspace_mapper.py" output="screen"/>
+
+	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find industrial_robot_client)/config/robot_state_visualize.rviz" required="true" />
+</launch>
