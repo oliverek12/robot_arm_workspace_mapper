@@ -3,7 +3,8 @@
 
 	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
-	<node name="workspace_mapper" pkg="robot_arm_workspace_mapper" type="workspace_mapper.py" output="screen"/>
+	<!-- NOTE: the arguments for the workspace mapper are [<csv_save_file_location> <resolution_of_sweeps_on_axis> <base_link_name_in_tf> <end_effector_link_name_in_tf>] -->
+	<node name="workspace_mapper" pkg="robot_arm_workspace_mapper" type="workspace_mapper.py" output="screen" args="~/temporary.csv 0.01 /base_link /link_6"/>
 
 	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find industrial_robot_client)/config/robot_state_visualize.rviz" required="true" />
 </launch>
