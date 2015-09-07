@@ -10,6 +10,7 @@ import rospy
 from sensor_msgs.msg import JointState
 import xml.dom.minidom
 import time, copy, tf, csv
+import sys, os
 
 def get_param(name, value=None):
     private = "~%s" % name
@@ -21,18 +22,18 @@ def get_param(name, value=None):
         return value
 
 class WorkspaceMapper():
+    # These are used to not duplicated results recorded in the csvFile
+    currX = None
+    currY = None
+    currZ = None 
+    def __init__(self, csvFileName, resolutionOfSweeps, baseLink, finalLink):
+        # Make input params globals
+        self.resolutionOfSweeps = float(resolutionOfSweeps)
+        self.baseLink = baseLink
+        self.finalLink = finalLink
 
-    ####### SET THESE! ########
-    baseLink = "/base_link"
-    finalLink = "/link_6"
-    resolutionOfSweeps = 0.1 #(0.1 is ten ticks for sweep)
-    csvFileName = "temp.csv"
-    ####### SET THESE! ########
-
-
-    def __init__(self):
         # Open up csv file for writing 
-        self.csvFile = open(self.csvFileName, 'wb')
+        self.csvFile = open(csvFileName, 'wb')
         self.csvWriter = csv.writer(self.csvFile)
 
         self.pub = rospy.Publisher('joint_states', JointState, queue_size=5)
@@ -145,7 +146,11 @@ class WorkspaceMapper():
                 rate = rospy.Rate(20.0)
                 try:
                     (trans,rot) = self.listener.lookupTransform(self.baseLink, self.finalLink, rospy.Time(0))
-                    self.csvWriter.writerow(trans)
+                    if (self.currX != trans[0]) or (self.currY != trans[1] or self.currZ != trans[2]):
+                        self.csvWriter.writerow(trans)
+                    self.currX = trans[0]
+                    self.currY = trans[1]
+                    self.currZ = trans[2]
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     print "ERROR: looking up tf"
                     time.sleep(0.5) # Sleep for a bit to let system catch up
@@ -182,12 +187,20 @@ class WorkspaceMapper():
 
 
 
-
-
 if __name__ == '__main__':
-    try:
-        rospy.init_node('workspace_mapper')
-        wm = WorkspaceMapper()
-        wm.mainLoop()
-
-    except rospy.ROSInterruptException: pass
+    # Check arguments
+    if len(sys.argv) < 7 or len(sys.argv) > 7:
+        print "ERROR: wrong number of arguments. (%d given) \n\tUSAGE: roslaunch robot_arm_workspace_mapper <launch_file> arg_name:=<save_path_of_output_csv_file> <resolution_of_sweeps_on_axis> <base_link_name_in_tf> <end_effector_link_name_in_tf>" % len(sys.argv)
+        exit(1)
+    else:
+        csvFileName = os.path.expanduser(sys.argv[1])
+        print "\nSaving file to location: %s" % csvFileName
+        if os.path.exists(csvFileName):
+            print "ERROR: cannot overwrite file %s" % csvFileName
+            exit(1)
+        else:
+            try:
+                rospy.init_node('workspace_mapper')
+                wm = WorkspaceMapper(csvFileName, sys.argv[2], sys.argv[3], sys.argv[4])
+                wm.mainLoop()
+            except rospy.ROSInterruptException: pass
