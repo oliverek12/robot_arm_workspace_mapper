@@ -9,8 +9,7 @@
 import rospy
 from sensor_msgs.msg import JointState
 import xml.dom.minidom
-import time
-import copy
+import time, copy, tf, csv
 
 def get_param(name, value=None):
     private = "~%s" % name
@@ -22,8 +21,22 @@ def get_param(name, value=None):
         return value
 
 class WorkspaceMapper():
+
+    ####### SET THESE! ########
+    baseLink = "/base_link"
+    finalLink = "/link_6"
+    resolutionOfSweeps = 0.1 #(0.1 is ten ticks for sweep)
+    csvFileName = "temp.csv"
+    ####### SET THESE! ########
+
+
     def __init__(self):
+        # Open up csv file for writing 
+        self.csvFile = open(self.csvFileName, 'wb')
+        self.csvWriter = csv.writer(self.csvFile)
+
         self.pub = rospy.Publisher('joint_states', JointState, queue_size=5)
+        self.listener = tf.TransformListener()
         description = get_param('robot_description')
         try:
             robot = xml.dom.minidom.parseString(description).getElementsByTagName('robot')[0]
@@ -109,13 +122,13 @@ class WorkspaceMapper():
                 self.free_joints[name] = joint
 
 
-    def computePositionsForNextJoint(self, currPositions, jointsToSweep, resolutionOfSweeps, maxs, mins, joint_list):
+    def computePositionsForNextJoint(self, currPositions, jointsToSweep, maxs, mins, joint_list):
         if len(jointsToSweep) != 0:    
-            for kk in range(0, int(1.0/resolutionOfSweeps)): # The actual sweeping
+            for kk in range(0, int(1.0/self.resolutionOfSweeps)): # The actual sweeping
                 currPositions[joint_list.index(jointsToSweep[0])] 
-                currPositions[joint_list.index(jointsToSweep[0])] = mins[joint_list.index(jointsToSweep[0])]+(resolutionOfSweeps*kk)*(maxs[joint_list.index(jointsToSweep[0])]-mins[joint_list.index(jointsToSweep[0])])
+                currPositions[joint_list.index(jointsToSweep[0])] = mins[joint_list.index(jointsToSweep[0])]+(self.resolutionOfSweeps*kk)*(maxs[joint_list.index(jointsToSweep[0])]-mins[joint_list.index(jointsToSweep[0])])
                 if (len(jointsToSweep) > 1):
-                    self.computePositionsForNextJoint(currPositions, jointsToSweep[1:len(jointsToSweep)], resolutionOfSweeps, maxs, mins, joint_list)
+                    self.computePositionsForNextJoint(currPositions, jointsToSweep[1:len(jointsToSweep)], maxs, mins, joint_list)
 
                 # Combine message and publish
                 msg = JointState()
@@ -126,14 +139,23 @@ class WorkspaceMapper():
                 msg.position = currPositions
                 msg.velocity = [0.0]*len(maxs)
                 msg.effort = [0.0]*len(maxs)
-                # time.sleep(0.005)
+                time.sleep(0.0001)
                 self.pub.publish(msg)
+                # Get End Effector Positions
+                rate = rospy.Rate(20.0)
+                try:
+                    (trans,rot) = self.listener.lookupTransform(self.baseLink, self.finalLink, rospy.Time(0))
+                    self.csvWriter.writerow(trans)
+                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                    print "ERROR: looking up tf"
+                    time.sleep(0.5) # Sleep for a bit to let system catch up
+                    continue
+
 
     def mainLoop(self):
-        while not rospy.is_shutdown():
+        if not rospy.is_shutdown():
             print "\n\nStarting up..."
-            time.sleep(20) # Wait for rviz to start up
-            # EndEffectorPositions
+            time.sleep(10) # Wait for rviz to start up
 
             # Get all values ready for message
             maxs = []
@@ -149,14 +171,14 @@ class WorkspaceMapper():
             # Sweep all values within limits
             reverse_joint_list = copy.copy(self.joint_list)
             reverse_joint_list.reverse()
-            resolutionOfSweeps = 0.01
-
-
 
             for ii,j1 in enumerate(reverse_joint_list): # For each joint we want to test
-                jointsToSweep = reverse_joint_list[0:ii]
+                print "Sweeping " + reverse_joint_list[ii] 
+                jointsToSweep = reverse_joint_list[0:ii+1]
                 jointsToSweep.reverse()
-                self.computePositionsForNextJoint(currPositions, jointsToSweep, resolutionOfSweeps, maxs, mins,self.joint_list)                    
+                self.computePositionsForNextJoint(currPositions, jointsToSweep, maxs, mins,self.joint_list)    
+
+            print "\n\t\t****Complete!\n\n"                
 
 
 
