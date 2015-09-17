@@ -122,7 +122,7 @@ class WorkspaceMapper():
                     joint['continuous'] = True
                 self.free_joints[name] = joint
 
-
+    # This is a recursive function to compute all possible combinations of joint orientations follwing the current joint
     def computePositionsForNextJoint(self, currPositions, jointsToSweep, maxs, mins, joint_list):
         if len(jointsToSweep) != 0:    
             for kk in range(0, int(1.0/self.resolutionOfSweeps)): # The actual sweeping
@@ -134,7 +134,6 @@ class WorkspaceMapper():
                 # Combine message and publish
                 msg = JointState()
                 msg.header.stamp = rospy.Time.now()
-
                 msg.name = self.joint_list
                 # print self.free_joints
                 msg.position = currPositions
@@ -156,7 +155,8 @@ class WorkspaceMapper():
                     time.sleep(0.5) # Sleep for a bit to let system catch up
                     continue
 
-
+    # This is the main loop that runs through all joints in the manipulator starting with the end effector
+    # and iterates over all combinations given the step size in the launch file
     def mainLoop(self):
         if not rospy.is_shutdown():
             print "\n\nStarting up..."
