@@ -1,0 +1,10 @@
+<launch>
+	<param name="robot_description" command="$(find xacro)/xacro.py '$(find abb_irb1200_support)/urdf/irb1200.xacro'" />
+
+	<!--node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" -->
+
+	<!-- NOTE: the arguments for the workspace mapper are [<csv_save_file_location> <resolution_of_sweeps_on_axis> <base_link_name_in_tf> <end_effector_link_name_in_tf>] -->
+	<node name="mapper_v2" pkg="mapper_v2" type="mapper_v2.py" output="screen" args="~/temporary.csv 0.04 /base_link /link_6"/>
+
+	<!--node name="rviz" pkg="rviz" type="rviz" args="-d $(find industrial_robot_client)/config/robot_state_visualize.rviz" required="true" -->
+</launch>
